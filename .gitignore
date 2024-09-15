@@ -1,0 +1,5 @@
+.env
+assets/
+output/
+custom_font.ttf
+venv/
