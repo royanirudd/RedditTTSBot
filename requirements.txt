@@ -12,6 +12,8 @@ httplib2==0.22.0
 idna==3.9
 joblib==1.4.2
 pillow==10.4.0
+praw==7.7.1
+prawcore==2.4.0
 proto-plus==1.24.0
 protobuf==5.28.1
 pyasn1==0.6.1
@@ -23,5 +25,7 @@ requests==2.32.3
 rsa==4.9
 soupsieve==2.6
 tqdm==4.66.5
+update-checker==0.18.0
 uritemplate==4.1.1
 urllib3==2.2.3
+websocket-client==1.8.0

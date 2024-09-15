@@ -30,7 +30,7 @@ def search_image(query):
     else:
         return None
 
-def create_thumbnail(image_url, text):
+def create_thumbnail(image_url, text, output_path=None):
     # Download the image
     response = requests.get(image_url)
     img = Image.open(BytesIO(response.content))
@@ -58,10 +58,10 @@ def create_thumbnail(image_url, text):
         font = ImageFont.truetype(font_path, font_size)
     except IOError:
         font = ImageFont.load_default()
-        print("Warning: Arial font not found. Using default font.")
+        print("Warning: Custom font not found. Using default font.")
     
     # Wrap text
-    wrapped_text = textwrap.fill(text, width=10)  # Reduced width for larger font
+    wrapped_text = textwrap.fill(text, width=30)  # Adjusted width for better fit
     
     # Calculate text position (centered)
     text_bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font)
@@ -71,7 +71,10 @@ def create_thumbnail(image_url, text):
     draw.multiline_text(text_position, wrapped_text, font=font, fill=(255, 255, 255), align='center')
     
     # Save the image
-    img.save("output/thumbnail.png")
+    if output_path:
+        img.save(output_path)
+    else:
+        img.save("output/thumbnail.png")
 
 def main():
     reddit_title = input("Enter the Reddit post title: ")

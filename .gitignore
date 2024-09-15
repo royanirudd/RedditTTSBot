@@ -3,3 +3,4 @@ assets/
 output/
 custom_font.ttf
 venv/
+__pycache__/
