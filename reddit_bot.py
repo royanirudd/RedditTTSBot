@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from thumbnail_generator import create_thumbnail, search_image, extract_nouns
 from gtts import gTTS
 from pydub import AudioSegment
+import tempfile
 
 # Load environment variables
 load_dotenv()
@@ -18,32 +19,41 @@ def setup_reddit_client():
     )
 
 def generate_tts(text, output_path):
-    # Generate full TTS
-    tts = gTTS(text)
-    temp_path = "temp_audio.mp3"
-    tts.save(temp_path)
-
-    # Load the audio file
-    audio = AudioSegment.from_mp3(temp_path)
-
-    # Take the first 30 seconds
-    thirty_seconds = 30 * 1000  # pydub works in milliseconds
-    first_30_seconds = audio[:thirty_seconds]
-
-    # Generate the "Watch the complete video" message
-    watch_message = gTTS("Watch the complete video for full story")
-    watch_message.save("watch_message.mp3")
-    watch_audio = AudioSegment.from_mp3("watch_message.mp3")
-
-    # Combine the first 30 seconds with the watch message
-    final_audio = first_30_seconds + watch_audio
-
-    # Export the final audio
-    final_audio.export(output_path, format="mp3")
-
-    # Clean up temporary files
-    os.remove(temp_path)
-    os.remove("watch_message.mp3")
+    # Generate full TTS with specified voice
+    tts = gTTS(text=text, lang='en', tld='us', slow=False)
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
+        tts.save(temp_file.name)
+        
+        # Load the audio file
+        audio = AudioSegment.from_mp3(temp_file.name)
+        
+        # Speed up the audio by 1.5x
+        fast_audio = audio.speedup(playback_speed=1.5)
+        
+        # Take the first 30 seconds
+        thirty_seconds = 30 * 1000  # pydub works in milliseconds
+        first_30_seconds = fast_audio[:thirty_seconds]
+        
+        # Generate the "Watch the complete video" message
+        watch_message = gTTS(text="Watch the complete video for full story", lang='en', tld='us', slow=False)
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as watch_temp_file:
+            watch_message.save(watch_temp_file.name)
+            watch_audio = AudioSegment.from_mp3(watch_temp_file.name)
+            
+            # Speed up the watch message by 1.5x
+            fast_watch_audio = watch_audio.speedup(playback_speed=1.5)
+            
+            # Combine the first 30 seconds with the watch message
+            final_audio = first_30_seconds + fast_watch_audio
+            
+            # Export the final audio
+            final_audio.export(output_path, format="mp3")
+            
+        # Clean up temporary files
+        os.unlink(watch_temp_file.name)
+    
+    os.unlink(temp_file.name)
 
 def process_submissions(reddit, subreddit_name, num_posts):
     subreddit = reddit.subreddit(subreddit_name)
