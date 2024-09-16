@@ -6,7 +6,7 @@ from thumbnail_generator import create_thumbnail, search_image, extract_nouns
 from gtts import gTTS
 from pydub import AudioSegment
 import tempfile
-from video_generator import generate_video
+from video_generator import generate_short_video, generate_long_video
 from post_tracker import load_processed_posts, save_processed_post
 
 # Load environment variables
@@ -21,7 +21,7 @@ def setup_reddit_client():
         password=os.getenv('REDDIT_PASSWORD')
     )
 
-def generate_tts(title, text, output_path):
+def generate_tts(title, text, output_path, long_video=False):
     # Replace "AITA" with "Am I the asshole" in the title
     title = re.sub(r'\bAITA\b', 'Am I the asshole', title, flags=re.IGNORECASE)
     
@@ -38,43 +38,55 @@ def generate_tts(title, text, output_path):
         # Speed up the audio by 1.5x
         fast_audio = audio.speedup(playback_speed=1.5)
         
-        # Take the first 30 seconds
-        thirty_seconds = 30 * 1000  # pydub works in milliseconds
-        first_30_seconds = fast_audio[:thirty_seconds]
-        
-        # Generate the "Watch the complete video" message
-        watch_message = gTTS(text="Watch the complete video for full story", lang='en', tld='us', slow=False)
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as watch_temp_file:
-            watch_message.save(watch_temp_file.name)
-            watch_audio = AudioSegment.from_mp3(watch_temp_file.name)
+        if not long_video:
+            # Take the first 30 seconds for short videos
+            thirty_seconds = 30 * 1000  # pydub works in milliseconds
+            first_30_seconds = fast_audio[:thirty_seconds]
             
-            # Speed up the watch message by 1.5x
-            fast_watch_audio = watch_audio.speedup(playback_speed=1.5)
-            
-            # Combine the first 30 seconds with the watch message
-            final_audio = first_30_seconds + fast_watch_audio
-            
-            # Export the final audio
-            final_audio.export(output_path, format="mp3")
-            
-        # Clean up temporary files
-        os.unlink(watch_temp_file.name)
+            # Generate the "Watch the complete video" message
+            watch_message = gTTS(text="Watch the complete video for full story", lang='en', tld='us', slow=False)
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as watch_temp_file:
+                watch_message.save(watch_temp_file.name)
+                watch_audio = AudioSegment.from_mp3(watch_temp_file.name)
+                
+                # Speed up the watch message by 1.5x
+                fast_watch_audio = watch_audio.speedup(playback_speed=1.5)
+                
+                # Combine the first 30 seconds with the watch message
+                final_audio = first_30_seconds + fast_watch_audio
+                
+                # Export the final audio
+                final_audio.export(output_path, format="mp3")
+                
+            # Clean up temporary files
+            os.unlink(watch_temp_file.name)
+        else:
+            # For long video, use the entire audio
+            fast_audio.export(output_path, format="mp3")
     
     os.unlink(temp_file.name)
 
 def process_submissions(reddit, subreddit_name, num_posts, processed_posts):
     subreddit = reddit.subreddit(subreddit_name)
     processed_count = 0
+    long_audio_paths = []
     
     for submission in subreddit.hot(limit=100):  # Fetch up to 100 posts to ensure we get enough non-stickied ones
         if processed_count >= num_posts:
             break
         
         if not submission.stickied and submission.id not in processed_posts:
-            success = process_submission(submission, processed_count + 1)
+            success, long_audio_path = process_submission(submission, processed_count + 1)
             if success:
                 processed_count += 1
                 save_processed_post('processed_posts.txt', submission.id)
+                long_audio_paths.append(long_audio_path)
+    
+    # Generate long video
+    if long_audio_paths:
+        long_video_path = "output/longvids/long_video.mp4"
+        generate_long_video(long_audio_paths, long_video_path)
+        print(f"Long video created: {long_video_path}")
     
     return processed_count
 
@@ -85,30 +97,33 @@ def process_submission(submission, count):
     
     if image_url:
         thumbnail_path = f"output/thumbnails/thumbnail_{count}.png"
-        audio_path = f"output/audios/audio_{count}.mp3"
-        video_path = f"output/videos/video_{count}.mp4"
+        short_audio_path = f"output/audios/short_audio_{count}.mp3"
+        long_audio_path = f"output/audios/long_audio_{count}.mp3"
+        short_video_path = f"output/shortvids/video_{count}.mp4"
         try:
             create_thumbnail(image_url, submission.title, thumbnail_path)
-            generate_tts(submission.title, submission.selftext, audio_path)
+            generate_tts(submission.title, submission.selftext, short_audio_path)
+            generate_tts(submission.title, submission.selftext, long_audio_path, long_video=True)
             
-            if os.path.exists(thumbnail_path) and os.path.exists(audio_path):
+            if os.path.exists(thumbnail_path) and os.path.exists(short_audio_path) and os.path.exists(long_audio_path):
                 print(f"Thumbnail created: {thumbnail_path}")
-                print(f"Audio created: {audio_path}")
+                print(f"Short audio created: {short_audio_path}")
+                print(f"Long audio created: {long_audio_path}")
                 
-                # Generate video
-                generate_video(audio_path, video_path)
-                print(f"Video created: {video_path}")
+                # Generate short video
+                generate_short_video(short_audio_path, short_video_path)
+                print(f"Short video created: {short_video_path}")
                 
-                return True
+                return True, long_audio_path
             else:
                 print(f"Thumbnail or audio creation failed.")
-                return False
+                return False, None
         except Exception as e:
             print(f"Error processing submission: {str(e)}")
-            return False
+            return False, None
     else:
         print("No suitable image found for the thumbnail.")
-        return False
+        return False, None
 
 def main():
     reddit = setup_reddit_client()
@@ -117,7 +132,8 @@ def main():
     # Ensure output directories exist
     os.makedirs("output/thumbnails", exist_ok=True)
     os.makedirs("output/audios", exist_ok=True)
-    os.makedirs("output/videos", exist_ok=True)
+    os.makedirs("output/shortvids", exist_ok=True)
+    os.makedirs("output/longvids", exist_ok=True)
     
     # Load processed posts
     processed_posts = load_processed_posts('processed_posts.txt')
@@ -137,6 +153,7 @@ def main():
     
     if processed_count > 0:
         print(f"Successfully processed {processed_count} posts!")
+        print(f"Created {processed_count} short videos and 1 long video.")
     else:
         print("No posts were processed. Please check the error messages above.")
 
