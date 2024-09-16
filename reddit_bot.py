@@ -5,6 +5,7 @@ from thumbnail_generator import create_thumbnail, search_image, extract_nouns
 from gtts import gTTS
 from pydub import AudioSegment
 import tempfile
+from video_generator import generate_video
 
 # Load environment variables
 load_dotenv()
@@ -78,6 +79,7 @@ def process_submission(submission, count):
     if image_url:
         thumbnail_path = f"output/thumbnail_{count}.png"
         audio_path = f"output/audio_{count}.mp3"
+        video_path = f"output/video_{count}.mp4"
         try:
             create_thumbnail(image_url, submission.title, thumbnail_path)
             generate_tts(submission.selftext, audio_path)
@@ -85,6 +87,11 @@ def process_submission(submission, count):
             if os.path.exists(thumbnail_path) and os.path.exists(audio_path):
                 print(f"Thumbnail created: {thumbnail_path}")
                 print(f"Audio created: {audio_path}")
+                
+                # Generate video
+                generate_video(audio_path, video_path)
+                print(f"Video created: {video_path}")
+                
                 return True
             else:
                 print(f"Thumbnail or audio creation failed.")
