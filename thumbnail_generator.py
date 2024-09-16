@@ -30,7 +30,7 @@ def search_image(query):
     else:
         return None
 
-def create_thumbnail(image_url, text, output_path=None):
+def create_thumbnail(image_url, text, output_path):
     # Download the image
     response = requests.get(image_url)
     img = Image.open(BytesIO(response.content))
@@ -71,10 +71,7 @@ def create_thumbnail(image_url, text, output_path=None):
     draw.multiline_text(text_position, wrapped_text, font=font, fill=(255, 255, 255), align='center')
     
     # Save the image
-    if output_path:
-        img.save(output_path)
-    else:
-        img.save("output/thumbnail.png")
+    img.save(output_path)
 
 def main():
     reddit_title = input("Enter the Reddit post title: ")
@@ -82,7 +79,7 @@ def main():
     image_url = search_image(search_query)
     
     if image_url:
-        create_thumbnail(image_url, reddit_title)
+        create_thumbnail(image_url, reddit_title, "output/thumbnails/thumbnail.png")
         print("Thumbnail created successfully!")
     else:
         print("No suitable image found.")

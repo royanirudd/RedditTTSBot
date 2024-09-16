@@ -4,3 +4,5 @@ output/
 custom_font.ttf
 venv/
 __pycache__/
+processed_posts.txt
+

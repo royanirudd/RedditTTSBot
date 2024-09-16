@@ -25,6 +25,6 @@ def generate_video(audio_path, output_path):
 if __name__ == "__main__":
     # This code will run if you execute this script directly
     # It's useful for testing the video generation function
-    audio_path = "path/to/your/test/audio.mp3"
-    output_path = "path/to/your/test/output.mp4"
+    audio_path = "output/audios/test_audio.mp3"
+    output_path = "output/videos/test_output.mp4"
     generate_video(audio_path, output_path)

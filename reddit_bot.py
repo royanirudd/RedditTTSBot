@@ -6,6 +6,7 @@ from gtts import gTTS
 from pydub import AudioSegment
 import tempfile
 from video_generator import generate_video
+from post_tracker import load_processed_posts, save_processed_post
 
 # Load environment variables
 load_dotenv()
@@ -19,9 +20,10 @@ def setup_reddit_client():
         password=os.getenv('REDDIT_PASSWORD')
     )
 
-def generate_tts(text, output_path):
+def generate_tts(title, text, output_path):
     # Generate full TTS with specified voice
-    tts = gTTS(text=text, lang='en', tld='us', slow=False)
+    full_text = f"{title}. {text}"
+    tts = gTTS(text=full_text, lang='en', tld='us', slow=False)
     
     with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
         tts.save(temp_file.name)
@@ -56,7 +58,7 @@ def generate_tts(text, output_path):
     
     os.unlink(temp_file.name)
 
-def process_submissions(reddit, subreddit_name, num_posts):
+def process_submissions(reddit, subreddit_name, num_posts, processed_posts):
     subreddit = reddit.subreddit(subreddit_name)
     processed_count = 0
     
@@ -64,10 +66,11 @@ def process_submissions(reddit, subreddit_name, num_posts):
         if processed_count >= num_posts:
             break
         
-        if not submission.stickied:
+        if not submission.stickied and submission.id not in processed_posts:
             success = process_submission(submission, processed_count + 1)
             if success:
                 processed_count += 1
+                save_processed_post('processed_posts.txt', submission.id)
     
     return processed_count
 
@@ -77,12 +80,12 @@ def process_submission(submission, count):
     image_url = search_image(search_query)
     
     if image_url:
-        thumbnail_path = f"output/thumbnail_{count}.png"
-        audio_path = f"output/audio_{count}.mp3"
-        video_path = f"output/video_{count}.mp4"
+        thumbnail_path = f"output/thumbnails/thumbnail_{count}.png"
+        audio_path = f"output/audios/audio_{count}.mp3"
+        video_path = f"output/videos/video_{count}.mp4"
         try:
             create_thumbnail(image_url, submission.title, thumbnail_path)
-            generate_tts(submission.selftext, audio_path)
+            generate_tts(submission.title, submission.selftext, audio_path)
             
             if os.path.exists(thumbnail_path) and os.path.exists(audio_path):
                 print(f"Thumbnail created: {thumbnail_path}")
@@ -107,8 +110,13 @@ def main():
     reddit = setup_reddit_client()
     subreddit_name = "AmItheAsshole"  # You can change this to any subreddit you want
     
-    # Ensure output directory exists
-    os.makedirs("output", exist_ok=True)
+    # Ensure output directories exist
+    os.makedirs("output/thumbnails", exist_ok=True)
+    os.makedirs("output/audios", exist_ok=True)
+    os.makedirs("output/videos", exist_ok=True)
+    
+    # Load processed posts
+    processed_posts = load_processed_posts('processed_posts.txt')
     
     # Ask user for number of posts to process
     while True:
@@ -121,7 +129,7 @@ def main():
         except ValueError:
             print("Please enter a valid number.")
     
-    processed_count = process_submissions(reddit, subreddit_name, num_posts)
+    processed_count = process_submissions(reddit, subreddit_name, num_posts, processed_posts)
     
     if processed_count > 0:
         print(f"Successfully processed {processed_count} posts!")
