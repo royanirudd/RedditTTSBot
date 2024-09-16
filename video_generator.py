@@ -1,62 +1,59 @@
-from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
-import os
+import moviepy.editor as mp
+from pydub import AudioSegment
 
 def generate_short_video(audio_path, output_path):
-    # Load the subway surfers video
-    video = VideoFileClip("assets/subway_surfers.mp4").without_audio().subclip(0, 32)
+    # Load the background video
+    background = mp.VideoFileClip("assets/subway_surfers.mp4")
     
-    # Load the generated audio
-    audio = AudioFileClip(audio_path)
+    # Load the audio
+    audio = mp.AudioFileClip(audio_path)
     
-    # If the audio is longer than the video, trim it
-    if audio.duration > video.duration:
-        audio = audio.subclip(0, video.duration)
+    # Set the duration of the video to match the audio
+    video = background.subclip(0, audio.duration)
     
     # Set the audio of the video
-    video = video.set_audio(audio)
+    final_video = video.set_audio(audio)
     
     # Write the result to a file
-    video.write_videofile(output_path, codec='libx264', audio_codec='aac')
-    
-    # Close the clips
-    video.close()
-    audio.close()
+    final_video.write_videofile(output_path, codec="libx264", audio_codec="aac")
 
 def generate_long_video(audio_paths, output_path):
-    # Load the long subway surfers video
-    long_video = VideoFileClip("assets/subway_surfers_long.mp4").without_audio()
+    # Load the background video
+    background = mp.VideoFileClip("assets/subway_surfers_long.mp4")
     
-    video_clips = []
-    current_time = 0
+    # Load the comment audio
+    comment_audio = AudioSegment.from_mp3("assets/comment_who_is_ahole.mp3")
     
-    for audio_path in audio_paths:
-        # Load the generated audio
-        audio = AudioFileClip(audio_path)
-        
-        # Extract a portion of the long video
-        video_clip = long_video.subclip(current_time, current_time + audio.duration)
-        
-        # Set the audio of the video clip
-        video_clip = video_clip.set_audio(audio)
-        
-        video_clips.append(video_clip)
-        current_time += audio.duration
+    # Load the like and subscribe audio
+    like_subscribe_audio = AudioSegment.from_mp3("assets/like_and_subscribe.mp3")
     
-    # Concatenate all video clips
-    final_video = concatenate_videoclips(video_clips)
+    # Combine all audio files
+    combined_audio = AudioSegment.empty()
+    for i, audio_path in enumerate(audio_paths):
+        audio = AudioSegment.from_mp3(audio_path)
+        combined_audio += audio
+        if i < len(audio_paths) - 1:  # Don't add comment audio after the last post
+            combined_audio += comment_audio
+
+    # Add like and subscribe audio at the end
+    combined_audio += like_subscribe_audio
+    
+    # Export the combined audio to a temporary file
+    temp_audio_path = "temp_combined_audio.mp3"
+    combined_audio.export(temp_audio_path, format="mp3")
+    
+    # Load the combined audio as a MoviePy audio clip
+    audio = mp.AudioFileClip(temp_audio_path)
+    
+    # Set the duration of the video to match the audio
+    video = background.subclip(0, audio.duration)
+    
+    # Set the audio of the video
+    final_video = video.set_audio(audio)
     
     # Write the result to a file
-    final_video.write_videofile(output_path, codec='libx264', audio_codec='aac')
+    final_video.write_videofile(output_path, codec="libx264", audio_codec="aac")
     
-    # Close the clips
-    long_video.close()
-    final_video.close()
-    for clip in video_clips:
-        clip.close()
-
-if __name__ == "__main__":
-    # This code will run if you execute this script directly
-    # It's useful for testing the video generation functions
-    audio_path = "output/audios/test_audio.mp3"
-    output_path = "output/videos/test_output.mp4"
-    generate_short_video(audio_path, output_path)
+    # Clean up the temporary audio file
+    import os
+    os.remove(temp_audio_path)
