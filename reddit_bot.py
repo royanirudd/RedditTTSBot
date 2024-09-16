@@ -1,5 +1,6 @@
 import praw
 import os
+import re
 from dotenv import load_dotenv
 from thumbnail_generator import create_thumbnail, search_image, extract_nouns
 from gtts import gTTS
@@ -21,6 +22,9 @@ def setup_reddit_client():
     )
 
 def generate_tts(title, text, output_path):
+    # Replace "AITA" with "Am I the asshole" in the title
+    title = re.sub(r'\bAITA\b', 'Am I the asshole', title, flags=re.IGNORECASE)
+    
     # Generate full TTS with specified voice
     full_text = f"{title}. {text}"
     tts = gTTS(text=full_text, lang='en', tld='us', slow=False)
