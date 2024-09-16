@@ -22,8 +22,9 @@ def setup_reddit_client():
     )
 
 def generate_tts(title, text, output_path, long_video=False):
-    # Replace "AITA" with "Am I the asshole" in the title
-    title = re.sub(r'\bAITA\b', 'Am I the asshole', title, flags=re.IGNORECASE)
+    # Replace "AITA" with "Am I the A-hole" in both title and text
+    title = re.sub(r'\bAITA\b', 'Am I the A-hole', title, flags=re.IGNORECASE)
+    text = re.sub(r'\bAITA\b', 'Am I the A-hole', text, flags=re.IGNORECASE)
     
     # Generate full TTS with specified voice
     full_text = f"{title}. {text}"
