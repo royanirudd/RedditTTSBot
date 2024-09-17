@@ -77,7 +77,7 @@ def process_submissions(reddit, subreddit_name, num_posts, processed_posts):
             break
         
         if not submission.stickied and submission.id not in processed_posts:
-            success, long_audio_path = process_submission(submission, processed_count + 1)
+            success, long_audio_path = process_submission(submission)
             if success:
                 processed_count += 1
                 save_processed_post('processed_posts.txt', submission.id)
@@ -86,39 +86,58 @@ def process_submissions(reddit, subreddit_name, num_posts, processed_posts):
     # Generate long video
     if long_audio_paths:
         long_video_path = "output/longvids/long_video.mp4"
-        generate_long_video(long_audio_paths, long_video_path)
-        print(f"Long video created: {long_video_path}")
+        if not os.path.exists(long_video_path):
+            generate_long_video(long_audio_paths, long_video_path)
+            print(f"Long video created: {long_video_path}")
+        else:
+            print(f"Long video already exists: {long_video_path}")
     
     return processed_count
 
-def process_submission(submission, count):
-    print(f"Processing submission {count}: {submission.title}")
+def process_submission(submission):
+    print(f"Processing submission: {submission.title}")
     search_query = extract_nouns(submission.title)
     image_url = search_image(search_query)
     
     if image_url:
-        thumbnail_path = f"output/thumbnails/thumbnail_{count}.png"
-        short_audio_path = f"output/audios/short_audio_{count}.mp3"
-        long_audio_path = f"output/audios/long_audio_{count}.mp3"
-        short_video_path = f"output/shortvids/video_{count}.mp4"
+        thumbnail_path = f"output/thumbnails/thumbnail_{submission.id}.png"
+        short_audio_path = f"output/audios/short_audio_{submission.id}.mp3"
+        long_audio_path = f"output/audios/long_audio_{submission.id}.mp3"
+        short_video_path = f"output/shortvids/video_{submission.id}.mp4"
+
+        # Check if files already exist
+        files_exist = all(os.path.exists(path) for path in [thumbnail_path, short_audio_path, long_audio_path, short_video_path])
+
+        if files_exist:
+            print(f"All files for submission {submission.id} already exist. Skipping processing.")
+            return True, long_audio_path
+
         try:
-            create_thumbnail(image_url, submission.title, thumbnail_path)
-            generate_tts(submission.title, submission.selftext, short_audio_path)
-            generate_tts(submission.title, submission.selftext, long_audio_path, long_video=True)
-            
-            if os.path.exists(thumbnail_path) and os.path.exists(short_audio_path) and os.path.exists(long_audio_path):
+            if not os.path.exists(thumbnail_path):
+                create_thumbnail(image_url, submission.title, thumbnail_path)
                 print(f"Thumbnail created: {thumbnail_path}")
+            else:
+                print(f"Thumbnail already exists: {thumbnail_path}")
+
+            if not os.path.exists(short_audio_path):
+                generate_tts(submission.title, submission.selftext, short_audio_path)
                 print(f"Short audio created: {short_audio_path}")
+            else:
+                print(f"Short audio already exists: {short_audio_path}")
+
+            if not os.path.exists(long_audio_path):
+                generate_tts(submission.title, submission.selftext, long_audio_path, long_video=True)
                 print(f"Long audio created: {long_audio_path}")
-                
-                # Generate short video
+            else:
+                print(f"Long audio already exists: {long_audio_path}")
+
+            if not os.path.exists(short_video_path):
                 generate_short_video(short_audio_path, short_video_path)
                 print(f"Short video created: {short_video_path}")
-                
-                return True, long_audio_path
             else:
-                print(f"Thumbnail or audio creation failed.")
-                return False, None
+                print(f"Short video already exists: {short_video_path}")
+
+            return True, long_audio_path
         except Exception as e:
             print(f"Error processing submission: {str(e)}")
             return False, None
