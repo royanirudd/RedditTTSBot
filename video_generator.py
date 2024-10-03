@@ -57,3 +57,5 @@ def generate_long_video(audio_paths, output_path):
     # Clean up the temporary audio file
     import os
     os.remove(temp_audio_path)
+
+    # TODO: Edit the video to include subtitles
